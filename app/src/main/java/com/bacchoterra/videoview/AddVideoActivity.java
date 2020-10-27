@@ -62,6 +62,20 @@ public class AddVideoActivity extends AppCompatActivity {
         setContentView(R.layout.activity_add_video);
         init();
 
+        btnUpload.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (videoUri != null) {
+
+                    uploadVideo();
+
+
+                } else {
+                    Toast.makeText(AddVideoActivity.this, "No video Selected", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
 
     }
 
@@ -176,7 +190,7 @@ public class AddVideoActivity extends AppCompatActivity {
             EasyPermissions.requestPermissions(this, getString(R.string.rationale_ask), EXTERNAL_STORAGE_PERM_REQ, perm);
         } else {
             Intent storageIntent = new Intent();
-            storageIntent.setType("videos/*");
+            storageIntent.setType("video/*");
             storageIntent.setAction(Intent.ACTION_GET_CONTENT);
             startActivityForResult(storageIntent, STORAGE_REQUEST_CODE);
         }
@@ -199,6 +213,7 @@ public class AddVideoActivity extends AppCompatActivity {
     }
 
     private void uploadVideo() {
+        btnUpload.setVisibility(View.GONE);
 
         rootStorage = FirebaseStorage.getInstance().getReference();
 
@@ -215,10 +230,14 @@ public class AddVideoActivity extends AppCompatActivity {
                 } else {
                     Toast.makeText(AddVideoActivity.this, task.getException().getMessage(), Toast.LENGTH_SHORT).show();
                 }
+
+                btnUpload.setVisibility(View.VISIBLE);
+                progressBar.setVisibility(View.GONE);
             }
         }).addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
             @Override
             public void onProgress(@NonNull UploadTask.TaskSnapshot snapshot) {
+                progressBar.setVisibility(View.VISIBLE);
                 progressBar.setMax((int) snapshot.getTotalByteCount());
                 progressBar.setProgress((int) snapshot.getBytesTransferred());
             }

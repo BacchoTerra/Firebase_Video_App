@@ -7,10 +7,10 @@
     tools:context=".AddVideoActivity">
 
     <FrameLayout
-        android:background="#D3D3D3"
         android:id="@+id/container_for_videoview"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:background="#D3D3D3"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -18,8 +18,8 @@
         <VideoView
             android:id="@+id/activity_add_video_videoView"
             android:layout_width="match_parent"
-            android:layout_gravity="center"
-            android:layout_height="250dp"/>
+            android:layout_height="250dp"
+            android:layout_gravity="center" />
 
 
     </FrameLayout>
@@ -60,17 +60,21 @@
         android:layout_height="wrap_content"
         android:drawableEnd="@drawable/ic_baseline_cloud_upload_24"
         android:text="Upload"
+        app:drawableTint="#ffffff"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:drawableTint="#ffffff"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textInputLayout" />
 
     <ProgressBar
         android:id="@+id/activity_add_video_progressBar"
         style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        tools:progress="50"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
