@@ -23,8 +23,12 @@ import android.widget.Toast;
 import android.widget.VideoView;
 
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
@@ -217,22 +221,39 @@ public class AddVideoActivity extends AppCompatActivity {
 
         rootStorage = FirebaseStorage.getInstance().getReference();
 
-        String videoFinalPath = "video_" + System.currentTimeMillis();
+        String timestamp = String.valueOf(System.currentTimeMillis());
+
+        String videoFinalPath = "video_" + timestamp;
 
         ref = rootStorage.child("videos").child(videoFinalPath);
 
 
-        ref.putFile(videoUri).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+        ref.putFile(videoUri).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
             @Override
-            public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
-                if (task.isSuccessful()) {
-                    Toast.makeText(AddVideoActivity.this, "Uploaded", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(AddVideoActivity.this, task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+
+                Task<Uri> uriTask = taskSnapshot.getStorage().getDownloadUrl();
+                while (!uriTask.isSuccessful());
+                Uri uri = uriTask.getResult();
+
+                if (uriTask.isSuccessful()){
+
+                    saveInDatabase(videoFinalPath,uri.toString(),timestamp);
+
                 }
 
                 btnUpload.setVisibility(View.VISIBLE);
                 progressBar.setVisibility(View.GONE);
+
+
+
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+
+                Toast.makeText(AddVideoActivity.this, e.getMessage(), Toast.LENGTH_SHORT).show();
+
             }
         }).addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
             @Override
@@ -243,5 +264,23 @@ public class AddVideoActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    private void saveInDatabase(String videoName,String url,String timestamp){
+
+        VideoModel videoModel = new VideoModel();
+
+        videoModel.setVideoName(videoName);
+        if (editTitle.getText().toString().isEmpty()){
+            videoModel.setTitle("Untitled");
+        }else {
+            videoModel.setTitle(editTitle.getText().toString());
+        }
+        videoModel.setUrl(url);
+        videoModel.setTimestamp(timestamp);
+
+        DatabaseReference rootRef = FirebaseDatabase.getInstance().getReference();
+        DatabaseReference ref = rootRef.child("videos").child(videoName);
+        ref.setValue(videoModel);
     }
 }
