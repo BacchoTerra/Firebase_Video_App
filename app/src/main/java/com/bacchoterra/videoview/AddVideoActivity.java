@@ -2,8 +2,11 @@ package com.bacchoterra.videoview;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.Manifest;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -14,6 +17,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.MediaController;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.VideoView;
@@ -22,8 +26,11 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
+
+import pub.devrel.easypermissions.EasyPermissions;
 
 public class AddVideoActivity extends AppCompatActivity {
 
@@ -32,6 +39,7 @@ public class AddVideoActivity extends AppCompatActivity {
     private TextView txtLength;
     private TextInputEditText editTitle;
     private Button btnUpload;
+    private ProgressBar progressBar;
 
     //Extras
     private Uri videoUri;
@@ -41,7 +49,12 @@ public class AddVideoActivity extends AppCompatActivity {
     private StorageReference ref;
 
     //Constants
-    private static final int VIDEO_REQUEST_CODE = 100;
+    private static final int EXTERNAL_STORAGE_PERM_REQ = 45;
+    private static final int CAMERA_PERM_REQ = 52;
+
+
+    private static final int STORAGE_REQUEST_CODE = 100;
+    private static final int CAPTURE_REQUEST_CODE = 101;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,10 +76,11 @@ public class AddVideoActivity extends AppCompatActivity {
         txtLength = findViewById(R.id.activity_add_video_txtLength);
         editTitle = findViewById(R.id.activity_add_video_editTitle);
         btnUpload = findViewById(R.id.activity_add_video_btnUpload);
+        progressBar = findViewById(R.id.activity_add_video_progressBar);
 
     }
 
-    private void initVideoView(){
+    private void initVideoView() {
 
         MediaController mediaController = new MediaController(this);
         videoView.setMediaController(mediaController);
@@ -80,7 +94,7 @@ public class AddVideoActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
 
 
-        if (requestCode == VIDEO_REQUEST_CODE && resultCode == RESULT_OK && data != null){
+        if (requestCode == STORAGE_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
 
             videoUri = data.getData();
             videoView.setVideoURI(videoUri);
@@ -92,6 +106,16 @@ public class AddVideoActivity extends AppCompatActivity {
                 }
             });
 
+        } else if (requestCode == CAPTURE_REQUEST_CODE && resultCode == RESULT_OK && data != null) {
+            videoUri = data.getData();
+            videoView.setVideoURI(videoUri);
+            videoView.setOnPreparedListener(new MediaPlayer.OnPreparedListener() {
+                @Override
+                public void onPrepared(MediaPlayer mediaPlayer) {
+                    txtLength.setText(String.valueOf(mediaPlayer.getDuration()));
+                    videoView.start();
+                }
+            });
         }
 
     }
@@ -99,7 +123,7 @@ public class AddVideoActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
 
-        getMenuInflater().inflate(R.menu.menu_add_video,menu);
+        getMenuInflater().inflate(R.menu.menu_add_video, menu);
 
         return super.onCreateOptionsMenu(menu);
     }
@@ -108,14 +132,97 @@ public class AddVideoActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
 
-        if (item.getItemId() == R.id.menu_add_video_choose_video){
-            Intent videoIntent = new Intent();
-            videoIntent.setType("video/*");
-            videoIntent.setAction(Intent.ACTION_GET_CONTENT);
-            startActivityForResult(videoIntent,VIDEO_REQUEST_CODE);
+        if (item.getItemId() == R.id.menu_add_video_choose_video) {
+
+            String[] itens = {"Camera", "Storage"};
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle("New Video From:");
+            builder.setItems(itens, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialogInterface, int i) {
+                    switch (i) {
+                        case 0:
+                            cameraPerm();
+                            break;
+                        case 1:
+                            storagePerm();
+                            break;
+                    }
+                }
+            });
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
 
         }
 
         return true;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
+    }
+
+    private void storagePerm() {
+
+        String[] perm = {Manifest.permission.READ_EXTERNAL_STORAGE};
+
+        if (!EasyPermissions.hasPermissions(this, perm)) {
+
+            EasyPermissions.requestPermissions(this, getString(R.string.rationale_ask), EXTERNAL_STORAGE_PERM_REQ, perm);
+        } else {
+            Intent storageIntent = new Intent();
+            storageIntent.setType("videos/*");
+            storageIntent.setAction(Intent.ACTION_GET_CONTENT);
+            startActivityForResult(storageIntent, STORAGE_REQUEST_CODE);
+        }
+
+    }
+
+    private void cameraPerm() {
+
+        String[] perm = {Manifest.permission.CAMERA};
+
+        if (!EasyPermissions.hasPermissions(this, perm)) {
+            EasyPermissions.requestPermissions(this, getString(R.string.rationale_ask), CAMERA_PERM_REQ, perm);
+        } else {
+            Intent cameraIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+            startActivityForResult(cameraIntent, CAPTURE_REQUEST_CODE);
+
+        }
+
+
+    }
+
+    private void uploadVideo() {
+
+        rootStorage = FirebaseStorage.getInstance().getReference();
+
+        String videoFinalPath = "video_" + System.currentTimeMillis();
+
+        ref = rootStorage.child("videos").child(videoFinalPath);
+
+
+        ref.putFile(videoUri).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
+                if (task.isSuccessful()) {
+                    Toast.makeText(AddVideoActivity.this, "Uploaded", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(AddVideoActivity.this, task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                }
+            }
+        }).addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onProgress(@NonNull UploadTask.TaskSnapshot snapshot) {
+                progressBar.setMax((int) snapshot.getTotalByteCount());
+                progressBar.setProgress((int) snapshot.getBytesTransferred());
+            }
+        });
+
     }
 }
